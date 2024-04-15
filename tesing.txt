@@ -1,0 +1,103 @@
+
+
+-- CREATE TEMPORARY TABLE:
+ create or replace TEMPORARY TABLE PD_INFO_TANK.TAB_TRIAGE_PROCESS.VIDEO_PERFORMANCE_RO_DETAIL_TEMP (
+	COMPANYID VARCHAR(100),
+	COUNTRY VARCHAR(30) COLLATE 'en-ci',
+	"Dealer Name" VARCHAR(100) COLLATE 'en-ci',
+	"Service Advisor" VARCHAR(200) COLLATE 'en-ci',
+	TECHNICIAN VARCHAR(200) COLLATE 'en-ci',
+	FRANCHISE VARCHAR(50) COLLATE 'en-ci',
+	CURRENCY VARCHAR(5) COLLATE 'en-ci',
+	DATEREPORTINGLOCAL DATE,
+	"Job Type" VARCHAR(200) COLLATE 'en-ci',
+	"Job Number" VARCHAR(16777216),
+	"Video Data" VARCHAR(16777216),
+	"Created Jobs" NUMBER(18,0),
+	"Completed Jobs" NUMBER(18,0),
+	"Jobs with Media" NUMBER(18,0),
+	"Jobs with Video" NUMBER(18,0),
+	"Jobs with Walkaround Video" NUMBER(18,0),
+	"Jobs Sent to Customer" NUMBER(18,0),
+	"Jobs sent with Video" NUMBER(18,0),
+	"Jobs sent with Walkaround Video" NUMBER(18,0),
+	"Jobs authorised with Video" NUMBER(18,0),
+	"Jobs with Video Sent with Identified Work" NUMBER(18,0),
+	"Videos Sent" NUMBER(30,0),
+	"Video Sent Watched" NUMBER(30,0),
+	WALKAROUNDDURATION NUMBER(38,0),
+	WALKAROUNDCOUNT NUMBER(30,0),
+	"Jobs with Photos" NUMBER(30,0)	
+);
+
+-- SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'TAB_TRIAGE_PROCESS' AND TABLE_NAME = 'VIDEO_PERFORMANCE_RO_DETAIL_TEMP';
+
+select count(1) from PD_INFO_TANK.TAB_TRIAGE_PROCESS.TRIAGE_VIDEO_PERFORMANCE p 
+where p."Video Data"  not in ('') and p.DATEREPORTINGLOCAL >= DATEADD(MONTH,-2,CURRENT_DATE());
+
+
+CALL PD_INFO_TANK.TAB_TRIAGE_PROCESS.SP_TEMP_VIDEO_RO_DETAIL();
+
+
+CREATE OR REPLACE PROCEDURE PD_INFO_TANK.TAB_TRIAGE_PROCESS.SP_TEMP_VIDEO_RO_DETAIL()
+RETURNS VARCHAR(16777216)
+LANGUAGE SQL
+EXECUTE AS CALLER
+AS 
+DECLARE
+Total_rows int;
+
+BEGIN
+
+Total_rows := (select count(*) from PD_INFO_TANK.TAB_TRIAGE_PROCESS.TRIAGE_VIDEO_PERFORMANCE p 
+				where p."Video Data"  not in (''));
+
+ 
+INSERT overwrite INTO PD_INFO_TANK.TAB_TRIAGE_PROCESS.VIDEO_PERFORMANCE_RO_DETAIL_TEMP
+SELECT 
+v.COMPANYID,
+v.COUNTRY,
+v."Dealer Name",
+v."Service Advisor" ,
+v.TECHNICIAN ,
+v.FRANCHISE ,
+v.CURRENCY ,
+v.DATEREPORTINGLOCAL ,
+v."Job Type" ,
+v."Job Number" ,
+SPLIT_PART(v."Video Data",',', s.ROW_NUM) as "Video Data" ,
+v."Created Jobs"  ,
+v."Completed Jobs"  ,
+v."Jobs with Media"  ,
+v."Jobs with Video"  ,
+v."Jobs with Walkaround Video"  ,
+v."Jobs Sent to Customer"  ,
+v."Jobs sent with Video"  ,
+v."Jobs sent with Walkaround Video"  ,
+v."Jobs authorised with Video"  ,
+v."Jobs with Video Sent with Identified Work"  ,
+v."Videos Sent"  ,
+v."Video Sent Watched"  ,
+v.WALKAROUNDDURATION,
+v.WALKAROUNDCOUNT  ,
+v."Jobs with Photos" , 
+FROM 
+	PD_INFO_TANK.TAB_TRIAGE_PROCESS.TRIAGE_VIDEO_PERFORMANCE v
+CROSS JOIN
+	LATERAL (SELECT  ROW_NUMBER() OVER(ORDER BY (SELECT NULL)) AS ROW_NUM 
+	FROM TABLE(GENERATOR(ROWCOUNT => Total_rows))) s 
+where 
+	SPLIT_PART(v."Video Data",',', s.ROW_NUM) NOT IN ('')
+	AND v.DATEREPORTINGLOCAL >= DATEADD(MONTH,-2,CURRENT_DATE());
+	
+RETURN 'Table updated.';
+END;
+
+desc table PD_INFO_TANK.TAB_TRIAGE_PROCESS.TRIAGE_VIDEO_PERFORMANCE;
+
+
+
+
+
+
+
